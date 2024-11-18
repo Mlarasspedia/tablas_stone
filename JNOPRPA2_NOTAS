@@ -1,0 +1,7 @@
+select * from no_paliq
+
+AGR_CXPT: 
+AGR_CXPF:  Agrupar una unica cuenta por pagar S:Si
+         N: No Agrupa: genera una cxp a cada tercero 
+1. En seguridad social: NO_APPRO: se define si el tercero es la entidad o es el funcionario (JNOAPPRO)
+
