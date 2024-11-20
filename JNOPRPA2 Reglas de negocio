@@ -73,36 +73,18 @@ El centro de costo puede definir el punto de venta
 
 Reglas de Negocio:
 
-
 Si la cuenta maneja punto de venta y centro de costo:
-
 Se toma el punto de venta del centro de costo
-
-
 Si la cuenta maneja punto de venta pero no centro de costo:
-
 Se toma el punto de venta configurado
-
-
 Si la cuenta no maneja punto de venta:
-
 Se usa un punto de venta por defecto
-
-
-
-
 Validaciones Importantes:
-
-
 La cuenta debe existir
 Si maneja centro de costo, este debe estar definido
 Si maneja punto de venta, debe tener uno asignado
 El centro de costo debe tener un punto de venta válido
-
-
 Casos Especiales:
-
-
 Provisiones (cuando gstParametro='P')
 Funcionarios (manejo especial por contratos)
 Configuraciones por empresa (gIntParRepo)
