@@ -1,0 +1,134 @@
+# **Documentación del Sistema**
+
+## **Programa: JCbRBnCv**
+
+### **Conciliación de Bancos con Canales Virtuales**
+
+#### **Query de Bancos**
+```sql
+SELECT DISTINCT
+  A.COD_EMPR, A.RMT_PROC, ' ' IND_CRUC, B.COD_TERM, B.NRO_AUTO, B.COD_FRAN,
+  B.FEC_COMP, B.VAL_TRAN, ' ' ESTADO
+FROM CB_PROCR A
+INNER JOIN CB_BANCO B ON A.COD_EMPR = B.COD_EMPR
+                     AND A.RMT_PROC = B.RMT_PROC
+                     AND B.UBI_REGI IN ('P', 'B')
+                     AND B.ACT_ESTA <> 'B'
+WHERE A.COD_EMPR = :COD_EMPR
+  AND A.TIP_PROC = 'B'
+  AND A.ACT_ESTA <> 'B';
+```
+
+#### **Query de Canales Virtuales**
+```sql
+SELECT DISTINCT
+  B.COD_EMPR, B.RMT_PROC, ' ' IND_CRUC, C.COD_TERM, C.NRO_AUTO, C.COD_FRAN,
+  C.FEC_COMP, C.VAL_TRAN, C.UBI_REGI, ' ' ESTADO
+FROM CB_PARAM A
+INNER JOIN CB_PROCR B ON A.COD_EMPR = B.COD_EMPR
+                     AND B.TIP_PROC = 'B'
+                     AND B.ACT_ESTA <> 'B'
+INNER JOIN CB_DTCVI C ON A.COD_EMPR = C.COD_EMPR
+                     AND A.COD_FRAN <> C.COD_FRAN
+                     AND C.FEC_COMP BETWEEN B.FEC_INIC AND B.FEC_FINA
+                     AND C.UBI_REGI IN ('P', 'C')
+                     AND C.ACT_ESTA <> 'B'
+WHERE B.COD_EMPR = :COD_EMPR;
+```
+
+### **Procedimientos Almacenados**
+
+#### **SP: `SPCBVLDACV`**
+
+**Descripción:** Selecciona el `RMT_PROC` del proceso. Si existe, lo retorna; si no, genera el siguiente `RMT_PROC` de la tabla `CB_PROC`.
+
+**Definición:**
+```sql
+ALTER PROC [dbo].[SPCBVLDACV]
+@COD_EMPR smallint,
+@TIP_PROC char(1),
+@TIP_CRUC char(1),
+@FEC_INIC datetime,
+@FEC_FINA datetime,
+@ACT_ESTA char(1),
+@RMT_PROC int OUTPUT,
+@IND_ERRO smallint OUTPUT,
+@DES_ERRO varchar(250) OUTPUT;
+```
+
+### **Flujo del Proceso**
+
+1. **Cruce Automático:**  
+   Se invoca el SP: `SPCBRBNCV`.
+
+2. **Cruce Manual:**
+   - Se registra el proceso en la tabla `CB_PROCE`.
+   - Se guardan las relaciones en la tabla `CB_RBNCM`.
+   - Se valida que las relaciones sean correctas.
+
+3. **Eliminación de Relación:**
+   - Elimina relaciones manuales.
+   - Elimina relaciones automáticas.
+   - Si no hay relaciones restantes, elimina el proceso en `CB_PROCE`.
+
+---
+
+## **Programa: JCBCCVTC**
+
+### **Conciliación de Canales Virtuales y Tarjetas**
+
+#### **Query de Canales Virtuales**
+```sql
+SELECT DISTINCT
+  B.COD_EMPR, B.RMT_PROC, ' ' IND_CRUC, B.COD_CLIN, B.NRO_AUTO,
+  B.FEC_COMP, B.VAL_TRAN
+FROM CB_PROCR A
+INNER JOIN CB_DTCVI (NOLOCK) B ON B.UBI_REGI IN ('P', 'C')
+                              AND A.COD_EMPR = B.COD_EMPR
+                              AND B.FEC_COMP BETWEEN :FEC_INIC AND :FEC_FINA
+INNER JOIN CB_PARAM C ON B.COD_EMPR = C.COD_EMPR
+                     AND B.COD_FRAN = C.COD_FRAN
+WHERE A.COD_EMPR = :COD_EMPR
+  AND A.TIP_PROC = :TIP_PROC
+  AND A.EST_REGI = 'P'
+  AND A.ACT_ESTA <> 'B';
+```
+
+#### **Query de Tarjetas**
+```sql
+SELECT DISTINCT
+  B.COD_EMPR, B.RMT_PROC, ' ' IND_CRUC, B.COD_CLIN, B.NRO_AUTO,
+  B.FEC_COMP, B.VAL_TRAN
+FROM CB_PROCR (NOLOCK) A
+INNER JOIN CB_DTTRC (NOLOCK) B ON A.COD_EMPR = B.COD_EMPR
+                              AND B.UBI_REGI = 'P'
+                              AND B.FEC_COMP BETWEEN :FEC_INIC AND :FEC_FINA
+WHERE B.COD_EMPR = :COD_EMPR
+  AND A.TIP_PROC = :TIP_PROC
+  AND A.EST_REGI = 'P'
+  AND A.ACT_ESTA <> 'B';
+```
+
+### **Procedimientos Almacenados**
+
+#### **SP: `SPCBVLDACV`**
+
+**Descripción:** Funciona de manera idéntica al proceso en conciliación de bancos, seleccionando o generando el `RMT_PROC`.
+
+**Definición:**  
+*(Ver definición anterior)*
+
+### **Flujo del Proceso**
+
+1. **Cruce Automático:**  
+   Se invoca el SP: `SPCBRCVTC`.
+
+2. **Cruce Manual:**
+   - Se registra el proceso en la tabla `CB_PROCE`.
+   - Se guardan las relaciones en la tabla `Cb_RCVTM`.
+   - Se valida que las relaciones sean correctas.
+
+3. **Eliminación de Relación:**
+   - Elimina relaciones manuales.
+   - Elimina relaciones automáticas.
+   - Si no hay relaciones restantes, elimina el proceso en `CB_PROCE`.
