@@ -1,0 +1,37 @@
+Fecha:15/08/2024
+=======================================
+1. Suma de las lineas = IBC del Mes actual.
+   a. Vacaciones y Ausencias calculadas con el IBC del mes anterior. 
+       (NO_PASEG.IBC_MANT ='S')
+   b. Compara el procentaje (60/40) de los Ingresos Totales (NO_PASEG.COD_TILI) (con IBC mes ant) 
+      y el IBC según el COD_TILI de Salud y pension. Toma el más alto
+2. Si no hay días ni conceptos diferentes a Vacaciones; Incapacidad y ausencias
+    La línea no se crea.
+==================
+Fecha 16/08/2024
+=================
+1. Descontar 1 día si la Incapacidad Incluye el dia 31.
+===============================
+Fecha 20/09/2024
+===============================
+1. Ley del máximo ejemplo contrato 8804 Emermedica
+2. Redondeo de los aportes. FON_FUNC; FON_VALO; FON_SUBS
+prueba Contrato 70 Mayo 2024
+=====================================
+Fecha: 16/10/2024
+====================================
+En el procedure PROCESARBASES
+Validar el tope. 
+================================================
+Fecha: 05/11/2024
+================================================
+Se modifica el procedure que calcula la porcion del Fondo 
+cuando se quita el check para que el fondo no se inserte en una sola línea
+================================================
+Fecha : 05/12/2024
+================================================
+TKT-2024-1786
+El caso del contrato 1228 Em
+Cuando en el mes ha tenido Vacaciones (que vienen de otro periodo)
+y terminan (en otro período)
+Pero no tiene registros en el mes : 
