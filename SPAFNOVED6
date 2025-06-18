@@ -1,0 +1,11 @@
+Veo que has subido el procedimiento almacenado `SPAFNOVED6`, un proceso complejo relacionado con el **traslado de activos fijos** entre grupos, clases, centros de costo y responsables. Este procedimiento incluye validaciones de vida útil, afectación contable, y actualizaciones a múltiples tablas como `AF_PLACA`, `AF_PLALI`, `AF_SAMES`, entre otras.
+
+¿Podrías indicarme con más precisión qué tipo de **algoritmo** necesitas?
+
+Por ejemplo:
+
+* ¿Quieres **documentar** el flujo de este SP como un algoritmo paso a paso?
+* ¿Quieres **extraer una parte específica** y convertirla en lógica de negocio para otro entorno?
+* ¿Deseas convertirlo a **pseudocódigo** o a un lenguaje como Python?
+
+Quedo atento para orientarte mejor.
