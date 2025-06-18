@@ -1,11 +1,125 @@
-Veo que has subido el procedimiento almacenado `SPAFNOVED6`, un proceso complejo relacionado con el **traslado de activos fijos** entre grupos, clases, centros de costo y responsables. Este procedimiento incluye validaciones de vida útil, afectación contable, y actualizaciones a múltiples tablas como `AF_PLACA`, `AF_PLALI`, `AF_SAMES`, entre otras.
+Perfecto. A continuación, te presento una **documentación del flujo del procedimiento almacenado `SPAFNOVED6`** como un **algoritmo paso a paso**, de forma estructurada, clara y jerárquica:
 
-¿Podrías indicarme con más precisión qué tipo de **algoritmo** necesitas?
+---
 
-Por ejemplo:
+### 🔄 Algoritmo del Procedimiento `SPAFNOVED6`
 
-* ¿Quieres **documentar** el flujo de este SP como un algoritmo paso a paso?
-* ¿Quieres **extraer una parte específica** y convertirla en lógica de negocio para otro entorno?
-* ¿Deseas convertirlo a **pseudocódigo** o a un lenguaje como Python?
+**Objetivo:** Realizar el traslado de un activo fijo (`TIP_NOVE = 6`) entre grupos, clases, centros de costo, responsables o referenciados, garantizando la coherencia contable y la correcta parametrización del sistema.
 
-Quedo atento para orientarte mejor.
+---
+
+#### 1. **Inicialización y carga de parámetros**
+
+* Declarar todas las variables necesarias (tablas temporales, variables de control y de negocio).
+* Imprimir trazabilidad inicial del proceso (`PRINT` con `@RMT_CANO`).
+
+---
+
+#### 2. **Cargar libros contables activos**
+
+* Insertar en `#CNLIBRO` los libros con `INI_LIBR` en ('CN','NI','FI') que estén activos.
+* Obtener el total de libros cargados en `@TOT_LIBR`.
+
+---
+
+#### 3. **Cargar registros de traslado**
+
+* Insertar en `@TAB_RGSTRO` los registros relacionados con el traslado (`AF_CANOV`, `AF_TIPNO`, `AF_CUNOV`, `GN_DOCUM`).
+* Obtener cantidad total de filas (`@TOT_FILA`) y recorrerlas con `WHILE`.
+
+---
+
+#### 4. **Iterar cada registro de traslado**
+
+Por cada fila de `@TAB_RGSTRO`:
+
+##### 4.1. Cargar información del concepto
+
+* Obtener `@NOM_CONC` desde `AF_CONCE`.
+
+##### 4.2. Cargar grupo destino y validar existencia
+
+* Obtener `@RMT_PLAC`, `@GRU_NOVE`, `@CLA_NOVE`, `@CCO_NOVE`, `@REF_NOVE`, `@TER_NOVE`.
+* Validar existencia. Si no existe, registrar error y saltar.
+
+##### 4.3. Cargar información actual del activo (`AF_PLACA`)
+
+* Obtener grupo, clase, responsable, centro de costo y referenciado actual.
+
+##### 4.4. Validar si hay cambios
+
+* Comparar datos actuales vs. destino.
+* Si no hay cambios, registrar errores específicos por tipo (grupo, clase, responsable, etc.).
+* Si hay cambios, marcar banderas `@CMBIA_*` y asignar valores de destino `@*_DEST`.
+
+##### 4.5. Validar relación entre grupo y clase en `AF_RGACL`.
+
+---
+
+#### 5. **Actualizar AF\_PLACA**
+
+* Actualizar los datos del activo (`GRUPO`, `CLASE`, `CCOSTO`, `RESPONSABLE`, etc.).
+* Registrar error si la actualización falla.
+
+---
+
+#### 6. **Recorrer adiciones por libro**
+
+Por cada libro en `#TAB_LIBADCION`:
+
+##### 6.1. Obtener valores de depreciación y vida útil de `AF_PLALI`.
+
+##### 6.2. Validar vida útil si cambia grupo/clase:
+
+* Si el grupo origen no depreciaba y el destino sí: se asigna `@INI_DEPR`.
+* Validar si la nueva vida útil es coherente (no menor que la ya depreciada).
+
+##### 6.3. Calcular nueva vida útil (`@VID_DEST`) desde:
+
+* Grupo (`AF_GRUAF`)
+* Clase (`AF_CLASE`) si aplica.
+
+##### 6.4. Actualizar tablas:
+
+* `AF_SAMES`: parámetros contables por libro.
+* `AF_PLALI`: detalle del activo por adición.
+* Validar errores en las actualizaciones.
+
+---
+
+#### 7. **Calcular diferencias por cambio de vida útil**
+
+* Calcular alícuotas (`ALI_COST`, `ALI_DAJU`, `ALI_DREV`).
+* Calcular valores a contabilizar: actual y anteriores (`COS_ACTU`, `DAJ_ANTE`, etc.).
+
+---
+
+#### 8. **Generar movimientos contables (`@CNCUMOV6`)**
+
+* Armar estructura de débito/crédito para:
+
+  * Activo
+  * Depreciación
+  * Revalorización (si aplica)
+* Llamar a `spCNcuentaNEW` para obtener cuentas dinámicas.
+* Insertar movimientos contables.
+
+---
+
+#### 9. **Validaciones finales**
+
+* Verificar si hay errores en `@TAB_RSLTDO`.
+* Si existen, finalizar y pasar al siguiente registro con `GOTO`.
+
+---
+
+#### 10. **Repetir proceso para cada fila**
+
+---
+
+#### 11. **Fin del procedimiento**
+
+---
+
+¿Te gustaría que te entregue esta documentación como archivo Word, PDF o Markdown para compartirla o almacenarla? También puedo ayudarte a generar un diagrama de flujo si lo necesitas.
+
