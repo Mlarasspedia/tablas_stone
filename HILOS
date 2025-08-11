@@ -1,0 +1,174 @@
+
+<-- Capítulo
+
+Índice del tutor de Delphi
+© Copyright 1998
+por David Martínez.
+Todos los derechos reservados
+
+Capítulo -->
+
+Capitulo 11.1 Hilos de Ejecución en Delphi
+Todas las versiones de Windows de 32 bits y superiores soportan hilos de ejecución. Para entender los hilos de ejecución, debemos ver cómo se ejecuta un programa en Windows a más bajo nivel.
+
+Un programa en Windows
+En el nivel más básico, un programa en Windows inicializa algunas cosas y entra en algo llamado un "Ciclo de Eventos" (Event Loop). En este ciclo el programa sigue recibiendo mensajes de Windows hasta que encuentre un mensaje llamado WM_QUIT o WM_CLOSE.
+
+Utilicemos un poco de "pseudocódigo" para ver a qué nos referimos:
+
+  Programa MyPrograma;
+
+    Comenzar
+       Inicializa;
+       CreaFormasYVentanas;
+       MensajeWindows = HayNuevosMensajes;
+       mientras ( MensajeWindows <> WM_CLOSE o MensajeWindows <> WM_QUIT )
+       comenzar
+	  ProcesaMensaje(MensajeWindows);
+       terminar;
+       CierraFormasyVentanas;
+       Finaliza;
+    Terminar.
+
+  procedimiento ProcesaMensaje( MensajeWindows );
+  comenzar
+    en caso de 
+      MensajeWindows = WM_RESIZE : CambiaTamaño;
+      MensajeWindows = WM_CLICK  : ProcesaClicks;
+      MensajeWindows = WM_PAINT  : RedibujarPantallas;
+      { Aquí listamos todos los posibles mensajes que debemos procesar }
+    fin caso;
+  terminar;
+
+Como verá usted, desde el punto de vista del procedimiento el programa no es más que un programa que entra en un ciclo infinito. Así que, aún cuando "se siente" que el programa puede hacer varias cosas al mismo tiempo, en realidad cada proceso de un mensaje de windows prohibe el proceso de otros mensajes hasta que su programa termine.
+
+Este es el motivo por el cual, cuando usted entra en un ciclo infinito, su programa "se atora". Se atora porque no puede procesar mensajes hasta que usted termine su ciclo, y esperará pacientemente a que su ciclo termine. Cuando su programa se atora, si usted pasa una ventana sobre las ventanas del programa, el programa "se borra". Esto es porque uno de los mensajes de Windows que su programa procesa es el mensaje WM_PAINT. Como el mensaje no puede ser procesado, las porciones de la ventana que están en blanco no son "redibujadas". El usuario tampoco puede mover las ventanas o minimizarlas, porque estos también son mensajes que hay que procesar.
+
+Concepto de Hilos de Ejecución
+Para solucionar este problema, los programadores han creado lo que se llaman "hilos de ejecución" (Threads). Su razonamiento es que cada proceso es una colección de uno o más "hilos". Todos los programas tienen al menos un hilo, que es en el caso de los programas de Delphi (y de casi todos los lenguajes de Windows) el mismo hilo que procesa todos los mensajes. Pero cualquier hilo puede crear otro "hilo" con un pedazo de código, y este hilo podrá ejecutar al mismo tiempo que el programa, sin necesidad de interrumpirlo.
+
+TODO: Hacer gráfica de hilos de ejecución.
+
+Esto puede ser bastante complejo; ya que aunque Windows puede protegerlo de accesar memoria que pertenece a otros procesos, no lo va a ayudar si varios hilos tratan de accesar la misma memoria. Así que usted tiene que tener cuidado, cuando accesa las variables de un hilo, de que el hilo no la esté utilizando, porque si no lo hace, los resultados pueden ser impredecibles.
+
+Una de las tareas más complicadas de un desarrollador experto es la depuración de errores causados por hilos de ejecución. Es por esto muy importante que usted comprenda todos los conceptos aquí explicados perfectamente bien. Los errores de hilos de ejecución no siempre son evidentes, y pueden causar que los programas se traben (sin dar mensajes de error) en circunstancias muy diversas y por motivos que muchas veces no son obvios.
+
+Comunicación Entre Hilos
+Así que usted puede hacer que varios hilos de ejecución ejecuten simultáneamente en su programa, pero no puede hacer que los hilos accesen memoria de otros hilos al mismo tiempo... ¿Entonces, cómo le hacemos para comunicarnos?
+
+El caso más común donde desearíamos comunicarnos con el hilo de ejecución principal sería para escribir algo en la pantalla (tal vez aumentar el valor de un ProgressBar o escribir en una etiqueta el estado actual de nuestro hilo). Para comunicarnos entre diversos hilos, debemos detener todos los hilos en favor del hilo principal, y decirle a este hilo que actualice la pantalla por nosotros. Este procedimiento se llama "sincronización".
+
+Obviamente, es muy importante evitar que cualquier sincronización tome demasiado tiempo, porque haría a nuestro programa sentirse lento en vez de ayudar.
+
+Implementación de Hilos de Ejecución en Delphi
+Delphi tiene un objeto específicamente para manejar hilos de ejecución, que es llamado, adecuadamente, TThread. Este objeto es abstracto, lo cual quiere decir que no lo podemos instanciar hasta que lo "heredemos" y creemos nuestro propio TThread. Pero lo que nos da es los primitivos de creación de Hilos y sincronización para que no necesitemos llamar al API de Windows.
+
+¿Cómo le decimos a TThread qué código queremos ejecutar? TThread tiene un procedimiento llamado Execute que usted debe implementar. Es en este procedimiento donde usted puede escribir su código.
+
+A continuación presento una pieza simplificada de código con las porciones indispensables para que un hilo de ejecución funcione:
+
+
+type
+
+  TBoxParser = class(TThread)
+  private
+  protected
+    procedure Execute; override;
+    procedure MostrarProgreso; override;
+  public
+  end;
+
+implementation
+
+procedure TBoxParser.Execute;
+var
+  i : Integer;
+begin
+
+    for i := 0 to MBox.MessageList.Count -1 do begin
+      FCurrentMessage := 'Reading '+MBox.MessageList.Items[i].MailFrom;
+      if Terminated then exit;
+      // Esto actualiza la forma evitando conflictos entre hilos.
+      Synchronize(MostrarProgreso);
+    end;
+
+end;
+
+procedure TBoxParser.MostrarProgreso;
+begin
+
+  //  Esto corre bajo el contexto del hilo principal.
+  mainform.StatusBar1.Panels[0].Text := FCurrentMessage;
+  mainform.ProgressBar1.Max := MboxMax;
+  mainform.ProgressBar1.Position := MBoxCurrent;
+
+end;
+Como podrá ver en el código, es responsabilidad de usted checar si el hilo ha sido terminado desde afuera (alguien que llame TThread.Terminate) e interrumpir su proceso. Además, si usted quiere actualizar la interfaz del usuario usted debe llamar Synchronize, ya que todo lo que vive en la interfaz del usuario corre en el contexto del hilo principal.
+
+Prioridad y Señales
+Los hilos de ejecución pueden tener varios niveles prioridad. El hilo puede cambiar su propia prioridad, pero debe usted tener en cuenta de que otros hilos en su programa (o el sistema operativo mismo) puede cambiar su prioridad, así que procure no depender en la prioridad.
+
+Ya hemos visto que otros hilos de ejecución pueden pedir que terminemos el programa, y eso lo debemos manejar nosotros mismos. Esta es una de las señales que el programa nos puede enviar, pero también puede suspendernos y continuarnos (Suspend/Resume). Siempre tenga esto en cuenta y programe defensivamente. Por ejemplo, si usted utiliza un recurso en un loop, asegúrese de que el recurso exista dentro del loop. Esa clase de cosas.
+
+Uso de Recursos
+Los hilos de ejecución que usted implemente deben estar programados de tal manera que "jueguen limpio" con los recursos. Esto quiere decir verificar que el recurso no esté en uso por otra tarea.
+
+Bases de Datos e Hilos de Ejecución
+Uno de los recursos que debemos procurar no accesar en varios hilos al mismo tiempo son las conexiones a bases de datos. El BDE permite multitarea pero no sobre la misma conexión. Esto quiere que usted deberá:
+
+Crear un TDatabase y TSession por cada hilo de ejecución
+Utilizar algún otro método (de programación) que nos permita asegurarnos que la base de datos nunca se compartirá.
+En Delphi es más sencillo crear los hilos y asignarles un nuevo TDatabase y TSession a cada uno.
+
+En el siguiente fragmento de código, estoy creando algunos queries, y al hacer esto estoy pidiendo la sesión y base de datos especificadas en el miembro "Database", que es un TDatabase que yo inventé:
+
+
+procedure TBoxParser.Execute;
+var
+  i : Integer;
+begin
+
+  qGente     := TQuery.Create(Database.Owner);
+  qEncuestas := TQuery.Create(Database.Owner);
+  qGente.SessionName := Database.SessionName;
+  qGente.DatabaseName := Database.DatabaseName;
+  qEncuestas.SessionName := Database.SessionName;
+  qEncuestas.DatabaseName := Database.DatabaseName;
+  qGente.SQL.Add('SELECT * FROM People WHERE EMail = :Email');
+  qGente.RequestLive := True;
+  qGente.Params[0].DataType := ftString;
+  qEncuestas.SQL.Add('SELECT * FROM DelphiEncuestas WHERE EMail = :Email');
+  qEncuestas.Params[0].DataType := ftString;
+  qEncuestas.RequestLive := True;
+El código que crea este hilo esta creando la base de datos (cuya variable es DBThread) por mí. Me conecta (para que el diálogo de Login/Password se ejecute desde el hilo principal), y una vez que tenga conectada la base, asigna la variable "Database" del hilo a la TDatabase a la que me conectó. De esta manera puedo estar seguro de que mi base de datos está lista para acceso. Es responsabilidad del hilo principal no utilizar la base hasta que el TThread Termine.
+
+
+   FParseThread := TBoxParser.Create(True);
+   dbThread.Connected := True;
+   TBoxParser(FParseThread).Database := dbThread;
+   FParseThread.Resume;
+Nota: El Hilo se está creando con el parámetro "True", que quiere decir que queremos que comience suspendido. Es muy importante dar este parámetro, ya que si no lo hacemos el procedimiento Execute comenzará de inmediato, y no podremos definir los datos que queremos procesar (en este caso, la base de datos que usaremos para conectarnos). Para continuar el proceso una vez que hemos definido todo lo que queramos, podemos llamar "Resume".
+
+Modelos de Diseño con Hilos de ejecución
+Cuando diseñamos programas con varios hilos de ejecución que hagan tareas repetitivas, usted debe estar consciente de el manejo los hilos de ejecución en los programas para asegurarse de que su programa no se trabe por uso simultáneo de recursos o demasiados hilos a la vez. Estas consideraciones nos hacen tener que decidir entre dos modelos de diseño:
+
+Hilo-por-Cliente (Thread Per Client)
+Bajo este modelo, cada cliente que usted genera crea un nuevo hilo. Cuando el cliente se desconecta (o el hilo termina su operación), el hilo se borra. Esto es fácil de programar. Por ejemplo, el evento OnClick de un boton puede crear un TThread y ejecutarlo. Pero el problema es que es fácil trabar el sistema si no tenemos cuidado (el usuario presionando el boton mil veces a la vez). El manual del API de Windows nos recomienda no crear más de 16 hilos de ejecución secundarios para evitar inestabilidad.
+
+Aunque es fácil de escribir, este modelo sólo funciona para unos cuantos hilos, y entre más hilos sean necesarios, más importante es encontrar otra manera.
+
+Colección de Hilos (Thread Pool)
+En un Thread Pool, usted tiene un objeto que mantiene una lista de punteros a hilos de ejecución que pueden estar "libres" u "ocupados". Esta colección corre desde el contexto del hilo principal y el hilo principal utiliza la lista para pedir un nuevo hilo. La lista busca entre todos los hilos uno que no esté ocupado. Si encuentra uno, lo proporciona. Si no, crea uno nuevo, lo añade a la lista y lo proporciona, a menos que la lista tenga el Máximo de hilos permitidos, que usted determina (en cuyo caso se crea el error "Servidor demasiado ocupado").
+
+Una vez que el hilo ha terminado la lista se actualiza marcando el hilo como "libre".
+
+Este procedimiento es excelente para los usuarios que necesitan compartir recursos como conexiones de red o conexiones a bases de datos. Estos sistemas son más difíciles de escribir porque debemos crear la colección y mantener la lista, además de asegurarnos de que el código existente nunca llame a los hilos por sí mismo (sino siempre use la lista). Pero nos proporciona dos ventajas:
+
+Primero, nos permite reutilizar hilos que no estén siendo usados, haciendo que nuestro programa pueda dar servicio a más clientes y a la vez reduzca los requerimientos sobre el sistema. Segundo, la complejidad se queda en el módulo de la colección, y mientras usted sea disciplinado en su programación de objetos, cualquier error en su modelo de hilos de ejecución probablemente será un error en la manera de implementar esta lista.
+
+Código Fuente - Análisis de Encuestas del Tutor
+El código fuente para esta sección está escrito en Delphi 5 (pero el módulo que contiene el Thread, "MBoxParseThread.Pas", funciona en todas las versiones de Delphi). Éste es el programa que utilizo para importar las encuestas que recibo por correo electrónico en una base de datos SQL y analizarlas utilizando un DBChart. El hilo de ejecución me permite analizar mientras importo nuevos correos. Utiliza dos bases de datos y dos sesiones (creadas manualmente en el módulo "dmEncuestas.pas"). Ya que solo tengo dos hilos, el principal y el hilo que importa los mensajes, no necesito ninguna arquitectura complicada (Se podría decir que es "Hilo-por-Cliente", con dos clientes).
+
+Bajar el código fuente para esta sección (16K, Zip)
+
+Capítulo -->
