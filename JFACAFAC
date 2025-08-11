@@ -1,0 +1,11 @@
+JFACAFAC
+2025-08-11
+TKT-2025-1166}
+Requerimiento:
+Cordial saludo, solicitamos realizar los siguientes ajustes de condiciones en el programa de JFACFAC.exe
+FACTURA BASE
+CAPINI	No se selecciona Factura base
+CAPPE	Se habilita factura del mismo cliente con las condiciones de CAPINI O CAPPE
+CAPFI	Se habilita factura del mismo cliente con las condiciones de CAPPE
+CONTRATO BASE
+DE CW_CONTR : COHAN
